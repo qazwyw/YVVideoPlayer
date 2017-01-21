@@ -15,6 +15,7 @@
 		636609301E2F11190010FD57 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 6366092E1E2F11190010FD57 /* LaunchScreen.storyboard */; };
 		636609381E2F11810010FD57 /* 02.mov in Resources */ = {isa = PBXBuildFile; fileRef = 636609371E2F11810010FD57 /* 02.mov */; };
 		6366093E1E2F54570010FD57 /* YvVideoPlayer.m in Sources */ = {isa = PBXBuildFile; fileRef = 6366093D1E2F54570010FD57 /* YvVideoPlayer.m */; };
+		6372C6431E334B9E003A6665 /* YvControlBar.m in Sources */ = {isa = PBXBuildFile; fileRef = 6372C6421E334B9E003A6665 /* YvControlBar.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -31,6 +32,8 @@
 		636609371E2F11810010FD57 /* 02.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = 02.mov; sourceTree = "<group>"; };
 		6366093C1E2F54570010FD57 /* YvVideoPlayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = YvVideoPlayer.h; sourceTree = "<group>"; };
 		6366093D1E2F54570010FD57 /* YvVideoPlayer.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = YvVideoPlayer.m; sourceTree = "<group>"; };
+		6372C6411E334B9E003A6665 /* YvControlBar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = YvControlBar.h; sourceTree = "<group>"; };
+		6372C6421E334B9E003A6665 /* YvControlBar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = YvControlBar.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +78,8 @@
 				636609201E2F11190010FD57 /* Supporting Files */,
 				6366093C1E2F54570010FD57 /* YvVideoPlayer.h */,
 				6366093D1E2F54570010FD57 /* YvVideoPlayer.m */,
+				6372C6411E334B9E003A6665 /* YvControlBar.h */,
+				6372C6421E334B9E003A6665 /* YvControlBar.m */,
 			);
 			path = VideoPlay;
 			sourceTree = "<group>";
@@ -161,6 +166,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6372C6431E334B9E003A6665 /* YvControlBar.m in Sources */,
 				636609281E2F11190010FD57 /* ViewController.m in Sources */,
 				6366093E1E2F54570010FD57 /* YvVideoPlayer.m in Sources */,
 				636609251E2F11190010FD57 /* AppDelegate.m in Sources */,
@@ -321,6 +327,7 @@
 				636609361E2F11190010FD57 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

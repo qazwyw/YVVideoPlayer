@@ -8,107 +8,71 @@
 
 #import "YvVideoPlayer.h"
 #import <AVFoundation/AVFoundation.h>
-#define kControlBarHeight 50
-#define kTimeLabelWidth 80
+#import "YvControlBar.h"
+
 //播放状态keypath
 static NSString * const kStatusKeyPath = @"status";
 //缓冲keypath
 static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
-//已播放的路径颜色
-#define kPlayedColor [UIColor redColor]
-//缓冲的路径颜色
-#define kTimeRangesColor [UIColor whiteColor]
-//进度条底色
-#define kTrackColor [UIColor grayColor]
 
-@interface YvVideoPlayer()
+
+@interface YvVideoPlayer()<YvControlBarDelegate>
 //控制条
-@property(nonatomic, strong)UIView *controlBar;
-//播放按钮
-@property(nonatomic, strong)UIButton *playBtn;
-//缓冲进度条
-@property(nonatomic, strong)UIProgressView *progressView;
-//播放进度（滑块）
-@property(nonatomic, strong)UISlider *slider;
-//时间显示
-@property(nonatomic, strong)UILabel *timeLabel;
+@property(nonatomic, strong)YvControlBar *controlBar;
 //加载指示器
 @property(nonatomic, strong)UIActivityIndicatorView *activityIndiView;
 
 @property(nonatomic, strong)AVPlayer *player;
 
+@property(nonatomic, strong)AVPlayerLayer *playerLayer;
+
+@property(nonatomic, assign)CGRect smallScreenFrame;
+
+@property(nonatomic, assign)CGRect fullScreenFrame;
+
+@property(nonatomic, copy)NSString *currentVideoUrlString;
 @end
 
 @implementation YvVideoPlayer
-
-+(instancetype)playerWithContainerView:(UIView *)containerView{
-    YvVideoPlayer *videoPlayer = [[YvVideoPlayer alloc]initWithContainerView:containerView];
++(instancetype)playerWithFrame:(CGRect)frame{
+    YvVideoPlayer *videoPlayer = [[YvVideoPlayer alloc]initWithFrame:frame];
     return videoPlayer;
 }
 
--(instancetype)initWithContainerView : (UIView *)containerView{
-    if (self = [super init]) {
-        [self initUIWithContainerView:containerView];
+-(instancetype)initWithFrame:(CGRect)frame{
+    if (self = [super initWithFrame:frame]) {
+        [self initUI];
+        [self addGestureRecognizer:[[UITapGestureRecognizer alloc]initWithTarget:self action:@selector(tap)]];
     }
     return self;
 }
 
--(void)initUIWithContainerView : (UIView *)containerView{
-    AVPlayerLayer *playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
-    playerLayer.backgroundColor = [UIColor blackColor].CGColor;
-    playerLayer.frame = containerView.bounds;
-    [containerView.layer addSublayer:playerLayer];
+//点击屏幕
+-(void)tap{
+    self.controlBar.hidden = !self.controlBar.hidden;
+}
+
+-(void)initUI{
+    self.smallScreenFrame = self.frame;
+    self.fullScreenFrame = CGRectMake(0, 0, CGRectGetWidth([UIScreen mainScreen].bounds), CGRectGetHeight([UIScreen mainScreen].bounds));
+    self.playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
+    self.playerLayer.backgroundColor = [UIColor blackColor].CGColor;
+    self.playerLayer.frame = self.bounds;
+    [self.layer addSublayer:self.playerLayer];
     
-    CGRect controlBarFrame = containerView.bounds;
+    CGRect controlBarFrame = self.bounds;
     controlBarFrame.origin.y = CGRectGetHeight(controlBarFrame) - kControlBarHeight;
     controlBarFrame.size.height = kControlBarHeight;
-    self.controlBar = [[UIView alloc]initWithFrame:controlBarFrame];
-    [containerView addSubview:self.controlBar];
+    self.controlBar = [[YvControlBar alloc]initWithFrame:controlBarFrame];
+    self.controlBar.delegate = self;
+    [self addSubview:self.controlBar];
     
-    UIView *transparentView = [[UIView alloc]initWithFrame:self.controlBar.bounds];
-    transparentView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:0.6];
-    [self.controlBar addSubview:transparentView];
     
-    self.playBtn = [[UIButton alloc] initWithFrame:CGRectMake(0, 0, 50, kControlBarHeight)];
-    [self.playBtn setBackgroundColor:[UIColor purpleColor]];
-    [self.playBtn setTitle:@"播放" forState:UIControlStateNormal];
-    [self.playBtn setTitle:@"暂停" forState:UIControlStateSelected];
-    [self.playBtn setTitle:@"暂停" forState:UIControlStateSelected |
-     UIControlStateHighlighted];
-    [self.playBtn addTarget:self action:@selector(playBtnClick:) forControlEvents:UIControlEventTouchUpInside];
-    [self.controlBar addSubview:self.playBtn];
-    
-    self.progressView = [[UIProgressView alloc]initWithFrame:CGRectMake(CGRectGetMaxX(self.playBtn.frame) + 10, 0, CGRectGetWidth(containerView.frame) - CGRectGetMaxX(self.playBtn.frame) - 20 - kTimeLabelWidth, kControlBarHeight)];
-    //缓冲颜色
-    self.progressView.tintColor = kTimeRangesColor;
-    //底色
-    self.progressView.trackTintColor = kTrackColor;
-    self.progressView.center = CGPointMake(self.progressView.center.x, kControlBarHeight/2);
-    [self.controlBar addSubview:self.progressView];
-    
-    CGRect progressViewFrame = self.progressView.frame;
-    progressViewFrame.origin.x -= 2;
-    progressViewFrame.size.width += 5;
-    progressViewFrame.size.height = kControlBarHeight;
-    self.slider = [[UISlider alloc]initWithFrame:progressViewFrame];
-    self.slider.center = self.progressView.center;
-    self.slider.minimumTrackTintColor = kPlayedColor;
-    self.slider.maximumTrackTintColor = [UIColor clearColor];
-    [self.slider addTarget:self action:@selector(sliderValueChanged:) forControlEvents:UIControlEventValueChanged ];
-    [self.slider addTarget:self action:@selector(sliderStartChangeValue:) forControlEvents: UIControlEventTouchDown];
-    [self.slider addTarget:self action:@selector(sliderDidChangedValue:) forControlEvents: UIControlEventTouchCancel | UIControlEventTouchUpInside | UIControlEventTouchUpOutside];
-    [self.controlBar addSubview:self.slider];
-    
-    self.timeLabel = [[UILabel alloc] initWithFrame:CGRectMake(CGRectGetMaxX(self.progressView.frame), 0, kTimeLabelWidth, kControlBarHeight)];
-    self.timeLabel.textAlignment = NSTextAlignmentCenter;
-    self.timeLabel.font = [UIFont systemFontOfSize:10];
-    self.timeLabel.textColor = [UIColor whiteColor];
-    [self.controlBar addSubview:self.timeLabel];
     
     self.activityIndiView = [[UIActivityIndicatorView alloc]initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
     [self.activityIndiView setHidesWhenStopped:YES];
     [self.activityIndiView stopAnimating];
-    [containerView addSubview:self.activityIndiView];
+    [self addSubview:self.activityIndiView];
 }
 
 -(AVPlayer *)player{
@@ -120,40 +84,69 @@ static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
 }
 
 #pragma mark 播放/暂停点击
--(void)playBtnClick : (UIButton *)sender{
+-(void)controlBar:(YvControlBar *)controlBar didClickPlayBtn:(UIButton *)playBtn{
+    //播放结束后再次点击播放
+    if (self.controlBar.progressView.progress >= 1.0 && playBtn.selected == NO) {
+        [self.player seekToTime:CMTimeMake(0, 1.0) completionHandler:^(BOOL finished) {
+            [self.player play];
+            [playBtn setSelected:YES];
+        }];
+        return;
+    }
     if (self.player.rate == 0) {
         [self.player play];
-        [sender setSelected:YES];
+        [playBtn setSelected:YES];
     }else{
         [self.player pause];
-        [sender setSelected:NO];
+        [playBtn setSelected:NO];
     }
+}
+
+#pragma mark 全屏切换
+-(void)controlBar:(YvControlBar *)controlBar didClickFullScreenBtn:(UIButton *)screenBtn{
+    [UIView beginAnimations:nil context:nil];
+    [UIView setAnimationDuration:0.3];
+    self.transform = CGAffineTransformIdentity;
+    
+    if (screenBtn.selected) {//退出全屏
+        self.frame = self.smallScreenFrame;
+        self.transform = CGAffineTransformMakeRotation(0);    
+        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationPortrait animated:YES];
+    }else{//全屏
+        self.transform = CGAffineTransformMakeRotation(-M_PI_2);
+        self.frame = self.fullScreenFrame;
+        [[UIApplication sharedApplication] setStatusBarOrientation:UIInterfaceOrientationLandscapeLeft animated:YES];
+    }
+    self.playerLayer.frame = self.bounds;
+    CGRect controlBarFrame = self.bounds;
+    controlBarFrame.origin.y = CGRectGetHeight(controlBarFrame) - kControlBarHeight;
+    controlBarFrame.size.height = kControlBarHeight;
+    self.controlBar.frame = controlBarFrame;
+    [UIView commitAnimations];
+    
+    screenBtn.selected = !screenBtn.selected;
 }
 
 #pragma mark - 滑块操作
 #pragma mark 滑块开始
--(void)sliderStartChangeValue : (UISlider *)slider{
-    
-    NSLog(@"sliderStartChangeValue");
+-(void)controlBar:(YvControlBar *)controlBar sliderStartChangeValue:(UISlider *)slider{
     [self.player setRate:0];
 }
 
--(void)sliderValueChanged : (UISlider *)slider{
-    NSLog(@"sliderValueChanged");
+-(void)controlBar:(YvControlBar *)controlBar sliderValueChanged:(UISlider *)slider{
     CGFloat totalTimeSecs = CMTimeGetSeconds(self.player.currentItem.duration);
     CGFloat currentTimeSecs = totalTimeSecs * slider.value;
-    self.timeLabel.text = [NSString stringWithFormat:@"%@/%@",[self getTimeStringWithSecs:currentTimeSecs],[self getTimeStringWithSecs:totalTimeSecs]];
+    controlBar.timeLabel.text = [NSString stringWithFormat:@"%@/%@",[self getTimeStringWithSecs:currentTimeSecs],[self getTimeStringWithSecs:totalTimeSecs]];
 }
 
-
 #pragma mark 滑块松手
--(void)sliderDidChangedValue : (UISlider *)slider{
-    NSLog(@"sliderDidChangedValue");
+-(void)controlBar:(YvControlBar *)controlBar sliderDidChangedValue:(UISlider *)slider{
     [self.player setRate:1];
     CGFloat totalTimeSecs = CMTimeGetSeconds(self.player.currentItem.duration);
     CGFloat currentTimeSecs =  slider.value * totalTimeSecs;
     CMTime time = CMTimeMake(currentTimeSecs, 1);
     [self.player seekToTime:time];
+
 }
 
 #pragma mark 添加进度观察
@@ -166,8 +159,8 @@ static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
         CGFloat finalValue = currentTimeSecs/totalTimeSecs;
         NSLog(@"currentTimeSecs = %f，totalTimeSecs = %f，finalValue = %f",
               currentTimeSecs,totalTimeSecs,finalValue);
-        [strongSelf.slider setValue:finalValue animated:YES];
-        strongSelf.timeLabel.text = [NSString stringWithFormat:@"%@/%@",[strongSelf getTimeStringWithSecs:currentTimeSecs],[strongSelf getTimeStringWithSecs:totalTimeSecs]];
+        [strongSelf.controlBar.slider setValue:finalValue animated:YES];
+        strongSelf.controlBar.timeLabel.text = [NSString stringWithFormat:@"%@/%@",[strongSelf getTimeStringWithSecs:currentTimeSecs],[strongSelf getTimeStringWithSecs:totalTimeSecs]];
     }];
 }
 
@@ -184,8 +177,8 @@ static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
 
 
 #pragma mark 播放结束
--(void)playbackFinished:(NSNotification *)notification{
-    NSLog(@"视频播放完成.");
+-(void)playend:(NSNotification *)notification{
+    [self.controlBar.playBtn setSelected:NO];
 }
 
 
@@ -195,11 +188,14 @@ static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
     [playerItem addObserver:self forKeyPath:kStatusKeyPath options:NSKeyValueObservingOptionNew context:nil];
     //监控网络加载情况属性
     [playerItem addObserver:self forKeyPath:kTimeRangeKeyPath options:NSKeyValueObservingOptionNew context:nil];
+    //播放结束
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(playend:) name:AVPlayerItemDidPlayToEndTimeNotification object:nil];
 }
 #pragma mark 移除
 -(void)removeObserverFromPlayerItem:(AVPlayerItem *)playerItem{
     [playerItem removeObserver:self forKeyPath:kStatusKeyPath];
     [playerItem removeObserver:self forKeyPath:kTimeRangeKeyPath];
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
 #pragma mark KVO
@@ -229,16 +225,22 @@ static NSString * const kTimeRangeKeyPath = @"loadedTimeRanges";
             [self.activityIndiView stopAnimating];
         }
         
-        [self.progressView setProgress:totalBuffer/totalTime animated:YES];
+        [self.controlBar.progressView setProgress:totalBuffer/totalTime animated:YES];
     }
 }
 
 
 #pragma mark 在线播放
 -(void)playWithVideoUrlString:(NSString *)videoUrlString{
+    if (!videoUrlString) {
+        return;
+    }
+    self.currentVideoUrlString = videoUrlString;
     NSURL *url = [NSURL URLWithString:videoUrlString];
     [self.player replaceCurrentItemWithPlayerItem:[AVPlayerItem playerItemWithURL:url]];
     [self addObserverToPlayerItem:self.player.currentItem];
-    [self playBtnClick:self.playBtn];
+    [self controlBar:self.controlBar didClickPlayBtn:self.controlBar.playBtn];
 }
+
+
 @end

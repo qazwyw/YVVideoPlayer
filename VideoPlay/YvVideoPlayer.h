@@ -10,11 +10,9 @@
 
 @interface YvVideoPlayer : UIView
 
-+(instancetype)playerWithContainerView : (UIView *)containerView;
++(instancetype)playerWithFrame:(CGRect)frame;
 
--(instancetype)initWithContainerView : (UIView *)containerView;
 //在线播放
 -(void)playWithVideoUrlString : (NSString *)videoUrlString;
 
--(void)playBtnClick : (UIButton *)sender;
 @end
